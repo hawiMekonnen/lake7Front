@@ -1,4 +1,4 @@
-import { StyleSheet} from "react-native";
+import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   container: {
@@ -7,7 +7,7 @@ export const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 48,
+    paddingTop: 20,
     paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -18,15 +18,21 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2563eb',
   },
+  greetingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
   locationText: {
-    color: '#6b7280',
+    color: '#000000',
     fontSize: 14,
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: '600',
     paddingHorizontal: 16,
     marginBottom: 16,
+    marginTop: 20,
   },
   servicesContainer: {
     flexDirection: 'row',

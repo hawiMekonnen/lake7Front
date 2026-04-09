@@ -31,7 +31,7 @@ export default function Signup() {
     console.log('Sending request to backend'); // Debug log
 
     try {
-      const response = await axios.post('http://localhost:5260/api/auth/register', {
+      const response = await axios.post('http://192.168.137.237:5260/api/auth/register', {
         fullname: fullname,
         email: email,
         password: password,
