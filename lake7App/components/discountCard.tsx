@@ -1,4 +1,3 @@
-// components/discountCard.tsx
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { discountCardStyles } from '../styles/discountCard.styles';

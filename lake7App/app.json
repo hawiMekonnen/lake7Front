@@ -8,6 +8,9 @@
     "scheme": "lake7app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "extra": {
+      "googleApiKey": "AIzaSyCzNGVxqrBAJtvaFrKEEImMVVVzjQg1870"
+    },
     "ios": {
       "supportsTablet": true
     },

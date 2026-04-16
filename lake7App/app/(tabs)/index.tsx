@@ -1,4 +1,3 @@
-// app/(tabs)/index.tsx
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';

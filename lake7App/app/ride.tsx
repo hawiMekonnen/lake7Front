@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+// app/ride.tsx
+import React, { useState, useEffect } from 'react';
+import * as Location from 'expo-location';
 import {
   View,
   Text,
@@ -11,116 +13,157 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { styles } from '../styles/ride.styles';
 import axios from 'axios';
-import { getToken } from '@/src/utils/auth';
+import Constants from 'expo-constants';
+import { getToken } from '../src/utils/auth';
+import { styles } from '@/styles/ride.styles';
 
-const API_BASE_URL = 'http://192.168.137.237:5260';   // Change to your IP when testing on phone
+const GOOGLE_API_KEY = Constants.expoConfig?.extra?.googleApiKey;
+const API_BASE_URL = 'http://192.168.137.237:5260';
 
 export default function RideScreen() {
   const [showPanel, setShowPanel] = useState(false);
-  
-  const [pickup, setPickup] = useState("Current Location");
+
+  const [pickup, setPickup] = useState("Getting current location...");
   const [destination, setDestination] = useState("");
 
-  const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
-  const [destinationSuggestions, setDestinationSuggestions] = useState<string[]>([]);
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [destinationSuggestions, setDestinationSuggestions] = useState<any[]>([]);
 
-  const [loading, setLoading] = useState(false);   // For confirm ride
+  const [loadingPickup, setLoadingPickup] = useState(false);
+  const [loadingDestination, setLoadingDestination] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(true);
 
-  // List of popular places in Addis Ababa
-  const addisPlaces = [
-    "Bole Airport", "Bole Medhanialem", "Meskel Square", "Piassa", "Merkato",
-    "Arat Kilo", "Siddist Kilo", "CMC", "Hayahulet", "Megenagna", "Kazanchis",
-    "Mexico Square", "Addis Ababa University", "National Museum", "Unity Park",
-    "Entoto Mountain", "Gotera", "Sarbet", "Lideta", "Lebu", "Kera", "Olympia",
-    "4 Kilo", "6 Kilo", "22 Mazoria", "Stadium", "Bole Atlas", "Old Airport"
-  ];
+  // Get user's current location on mount
+  useEffect(() => {
+    const getCurrentLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Location permission is required.');
+          setPickup("Current Location");
+          setLocationLoading(false);
+          return;
+        }
 
-  const handlePickupSearch = (text: string) => {
-    setPickup(text);
-    if (text.trim() === "") {
+        const location = await Location.getCurrentPositionAsync({});
+        const geocode = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+        let address = "Current Location";
+        if (geocode && geocode.length > 0) {
+          address = `${geocode[0].name || ''} ${geocode[0].street || ''}, ${geocode[0].city || 'Addis Ababa'}`.trim();
+        }
+
+        setPickup(address);
+      } catch (error) {
+        console.error('Location error:', error);
+        setPickup("Current Location");
+      } finally {
+        setLocationLoading(false);
+      }
+    };
+
+    getCurrentLocation();
+  }, []);
+
+  // Fetch Google Places Autocomplete
+  const fetchSuggestions = async (text: string, type: 'pickup' | 'destination') => {
+    if (text.length < 3) {
+      if (type === 'pickup') setPickupSuggestions([]);
+      else setDestinationSuggestions([]);
+      return;
+    }
+
+    const setLoading = type === 'pickup' ? setLoadingPickup : setLoadingDestination;
+    const setSuggestions = type === 'pickup' ? setPickupSuggestions : setDestinationSuggestions;
+
+    setLoading(true);
+
+    try {
+      const response = await axios.get(
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+        {
+          params: {
+            input: text,
+            key: GOOGLE_API_KEY,
+            types: 'geocode',
+            language: 'en',
+          },
+        }
+      );
+
+      if (response.data.status === 'OK') {
+        setSuggestions(response.data.predictions);
+      } else {
+        console.warn('Google API Error:', response.data.status);
+        setSuggestions([]);
+      }
+    } catch (error) {
+      console.error('Google Places error:', error);
+      setSuggestions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectPlace = (place: any, type: 'pickup' | 'destination') => {
+    if (type === 'pickup') {
+      setPickup(place.description);
       setPickupSuggestions([]);
-      return;
-    }
-    const filtered = addisPlaces
-      .filter(place => place.toLowerCase().includes(text.toLowerCase()))
-      .slice(0, 8);
-    setPickupSuggestions(filtered);
-  };
-
-  const handleDestinationSearch = (text: string) => {
-    setDestination(text);
-    if (text.trim() === "") {
+    } else {
+      setDestination(place.description);
       setDestinationSuggestions([]);
-      return;
     }
-    const filtered = addisPlaces
-      .filter(place => place.toLowerCase().includes(text.toLowerCase()))
-      .slice(0, 8);
-    setDestinationSuggestions(filtered);
-  };
-
-  const selectPickup = (place: string) => {
-    setPickup(place);
-    setPickupSuggestions([]);
-  };
-
-  const selectDestination = (place: string) => {
-    setDestination(place);
-    setDestinationSuggestions([]);
   };
 
   const confirmRide = async () => {
-  if (!pickup || !destination) {
-    Alert.alert("Missing Info", "Please select both pickup and destination");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const token = await getToken();
-
-    if (!token) {
-      Alert.alert("Not Logged In", "Please login first");
+    if (!pickup || !destination) {
+      Alert.alert("Missing Info", "Please select both pickup and destination");
       return;
     }
 
-    const rideData = {
-      userId: "d3f0a8b4-5c2f-4a1e-9f1a-123456789abc",     // Replace with real userId from auth later
-      driverId: "a33a0986-32c4-485e-bc19-08de949ca2b2",   // This should be dynamic later
-      pickupLocation: pickup,
-      dropoffLocation: destination,
-    };
+    setConfirmLoading(true);
 
-    const response = await axios.post(
-      `${API_BASE_URL}/api/ride/request`, 
-      rideData,
-      {
+    try {
+      const token = await getToken();
+      if (!token) {
+        Alert.alert("Not Logged In", "Please login first");
+        return;
+      }
+
+      const rideData = {
+        userId: "d3f0a8b4-5c2f-4a1e-9f1a-123456789abc",
+        driverId: "a33a0986-32c4-485e-bc19-08de949ca2b2",
+        pickupLocation: pickup,
+        dropoffLocation: destination,
+      };
+
+      await axios.post(`${API_BASE_URL}/api/ride/request`, rideData, {
         headers: {
-          Authorization: `Bearer ${token}`,     // ← This is the key part
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+      });
+
+      Alert.alert("Success!", "Your ride request has been sent successfully!");
+      setShowPanel(false);
+
+    } catch (error: any) {
+      console.error(error);
+      if (error.response?.status === 401) {
+        Alert.alert("Session Expired", "Please login again");
+      } else {
+        Alert.alert("Failed", "Could not request ride. Please try again.");
       }
-    );
-
-    console.log('Ride request successful:', response.data);
-
-    Alert.alert("Success!", "Your ride has been requested successfully!");
-
-  } catch (error: any) {
-    console.error('Ride request failed:', error);
-
-    if (error.response?.status === 401) {
-      Alert.alert("Session Expired", "Please login again");
-    } else {
-      Alert.alert("Failed", error.response?.data?.message || "Could not request ride");
+    } finally {
+      setConfirmLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   return (
     <View style={styles.container}>
       <Image
@@ -136,13 +179,15 @@ export default function RideScreen() {
           <Ionicons name="location" size={24} color="#2563eb" />
           <View style={styles.locationTextContainer}>
             <Text style={styles.label}>Pickup</Text>
-            <Text style={styles.locationValue}>{pickup}</Text>
+            <Text style={styles.locationValue} numberOfLines={1}>
+              {locationLoading ? "Getting location..." : pickup}
+            </Text>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.destinationBox} onPress={() => setShowPanel(true)}>
           <Ionicons name="search" size={24} color="#6b7280" />
-          <Text style={styles.destinationPlaceholder}>
+          <Text style={styles.destinationPlaceholder} numberOfLines={1}>
             {destination || "Where to?"}
           </Text>
         </TouchableOpacity>
@@ -161,25 +206,31 @@ export default function RideScreen() {
             {/* Pickup */}
             <Text style={styles.inputLabel}>Pickup Location</Text>
             <View style={styles.searchContainer}>
-              <Ionicons name="location" size={20} color="#2563eb" style={styles.searchIcon} />
+              <Ionicons name="location" size={20} color="#2563eb" />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search pickup location"
                 value={pickup}
-                onChangeText={handlePickupSearch}
+                onChangeText={(text) => {
+                  setPickup(text);
+                  fetchSuggestions(text, 'pickup');
+                }}
               />
+              {loadingPickup && <ActivityIndicator size="small" color="#2563eb" />}
             </View>
 
             {pickupSuggestions.length > 0 && (
               <ScrollView style={styles.suggestionsList} nestedScrollEnabled>
                 {pickupSuggestions.map((place, index) => (
-                  <TouchableOpacity 
-                    key={index} 
-                    style={styles.suggestionItem} 
-                    onPress={() => selectPickup(place)}
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.suggestionItem}
+                    onPress={() => selectPlace(place, 'pickup')}
                   >
                     <Ionicons name="location-outline" size={20} color="#64748b" />
-                    <Text style={styles.suggestionText}>{place}</Text>
+                    <Text style={styles.suggestionText} numberOfLines={2}>
+                      {place.description}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -188,37 +239,42 @@ export default function RideScreen() {
             {/* Destination */}
             <Text style={styles.inputLabel}>Destination</Text>
             <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+              <Ionicons name="search" size={20} color="#6b7280" />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search destination"
                 value={destination}
-                onChangeText={handleDestinationSearch}
+                onChangeText={(text) => {
+                  setDestination(text);
+                  fetchSuggestions(text, 'destination');
+                }}
               />
+              {loadingDestination && <ActivityIndicator size="small" color="#2563eb" />}
             </View>
 
             {destinationSuggestions.length > 0 && (
               <ScrollView style={styles.suggestionsList} nestedScrollEnabled>
                 {destinationSuggestions.map((place, index) => (
-                  <TouchableOpacity 
-                    key={index} 
-                    style={styles.suggestionItem} 
-                    onPress={() => selectDestination(place)}
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.suggestionItem}
+                    onPress={() => selectPlace(place, 'destination')}
                   >
                     <Ionicons name="location-outline" size={20} color="#64748b" />
-                    <Text style={styles.suggestionText}>{place}</Text>
+                    <Text style={styles.suggestionText} numberOfLines={2}>
+                      {place.description}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
 
-            {/* Confirm Button */}
             <TouchableOpacity 
-              style={[styles.confirmButton, loading && { opacity: 0.7 }]} 
+              style={[styles.confirmButton, confirmLoading && { opacity: 0.7 }]} 
               onPress={confirmRide}
-              disabled={loading}
+              disabled={confirmLoading}
             >
-              {loading ? (
+              {confirmLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.confirmButtonText}>Confirm Ride</Text>
