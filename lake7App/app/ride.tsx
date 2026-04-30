@@ -1,5 +1,4 @@
-// app/ride.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import * as Location from 'expo-location';
 import {
   View,
@@ -7,21 +6,23 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  StyleSheet,
   Alert,
   Image,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-import Constants from 'expo-constants';
+import debounce from 'lodash.debounce';
 import { getToken } from '../src/utils/auth';
 import { styles } from '@/styles/ride.styles';
+import { useRouter } from 'expo-router';
+import { decode as atob } from 'base-64';
 
-const GOOGLE_API_KEY = Constants.expoConfig?.extra?.googleApiKey;
-const API_BASE_URL = 'http://192.168.137.237:5260';
+const API_BASE_URL = 'http://192.168.137.218:5260';
 
 export default function RideScreen() {
+  const router = useRouter();
+
   const [showPanel, setShowPanel] = useState(false);
 
   const [pickup, setPickup] = useState("Getting current location...");
@@ -30,12 +31,15 @@ export default function RideScreen() {
   const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
   const [destinationSuggestions, setDestinationSuggestions] = useState<any[]>([]);
 
+  const [selectedPickup, setSelectedPickup] = useState<any | null>(null);
+  const [selectedDestination, setSelectedDestination] = useState<any | null>(null);
+
   const [loadingPickup, setLoadingPickup] = useState(false);
   const [loadingDestination, setLoadingDestination] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(true);
 
-  // Get user's current location on mount
+  // 📍 Get current location
   useEffect(() => {
     const getCurrentLocation = async () => {
       try {
@@ -43,7 +47,6 @@ export default function RideScreen() {
         if (status !== 'granted') {
           Alert.alert('Permission Denied', 'Location permission is required.');
           setPickup("Current Location");
-          setLocationLoading(false);
           return;
         }
 
@@ -54,13 +57,21 @@ export default function RideScreen() {
         });
 
         let address = "Current Location";
-        if (geocode && geocode.length > 0) {
-          address = `${geocode[0].name || ''} ${geocode[0].street || ''}, ${geocode[0].city || 'Addis Ababa'}`.trim();
+        if (geocode.length > 0) {
+          address = `${geocode[0].name || ''} ${geocode[0].street || ''}, ${geocode[0].city || 'Addis Ababa'}`;
         }
 
         setPickup(address);
+
+        // ✅ Store coordinates
+        setSelectedPickup({
+          description: address,
+          lat: location.coords.latitude,
+          lon: location.coords.longitude,
+        });
+
       } catch (error) {
-        console.error('Location error:', error);
+        console.log("Location error:", error);
         setPickup("Current Location");
       } finally {
         setLocationLoading(false);
@@ -70,13 +81,9 @@ export default function RideScreen() {
     getCurrentLocation();
   }, []);
 
-  // Fetch Google Places Autocomplete
+  // 🔍 Fetch suggestions
   const fetchSuggestions = async (text: string, type: 'pickup' | 'destination') => {
-    if (text.length < 3) {
-      if (type === 'pickup') setPickupSuggestions([]);
-      else setDestinationSuggestions([]);
-      return;
-    }
+    if (text.length < 3) return;
 
     const setLoading = type === 'pickup' ? setLoadingPickup : setLoadingDestination;
     const setSuggestions = type === 'pickup' ? setPickupSuggestions : setDestinationSuggestions;
@@ -84,85 +91,130 @@ export default function RideScreen() {
     setLoading(true);
 
     try {
-      const response = await axios.get(
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json',
-        {
-          params: {
-            input: text,
-            key: GOOGLE_API_KEY,
-            types: 'geocode',
-            language: 'en',
-          },
-        }
-      );
+      const res = await axios.get(`${API_BASE_URL}/api/places/autocomplete`, {
+        params: { input: text },
+      });
 
-      if (response.data.status === 'OK') {
-        setSuggestions(response.data.predictions);
-      } else {
-        console.warn('Google API Error:', response.data.status);
-        setSuggestions([]);
-      }
-    } catch (error) {
-      console.error('Google Places error:', error);
+      const mapped = res.data.predictions.map((p: any) => ({
+        description: p.display_name,
+        lat: p.lat,
+        lon: p.lon,
+      }));
+
+      setSuggestions(mapped);
+    } catch (err) {
+      console.log("Autocomplete error:", err);
       setSuggestions([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // 🚀 Debounce
+  const fetchPickupDebounced = useCallback(debounce((text) => {
+    fetchSuggestions(text, 'pickup');
+  }, 400), []);
+
+  const fetchDestinationDebounced = useCallback(debounce((text) => {
+    fetchSuggestions(text, 'destination');
+  }, 400), []);
+
+  // ✅ Select place
   const selectPlace = (place: any, type: 'pickup' | 'destination') => {
     if (type === 'pickup') {
       setPickup(place.description);
       setPickupSuggestions([]);
+      setSelectedPickup(place);
     } else {
       setDestination(place.description);
       setDestinationSuggestions([]);
+      setSelectedDestination(place);
     }
   };
 
-  const confirmRide = async () => {
-    if (!pickup || !destination) {
-      Alert.alert("Missing Info", "Please select both pickup and destination");
+ // 🚗 Confirm Ride
+const confirmRide = async () => {
+  if (!selectedPickup || !selectedDestination) {
+    Alert.alert("Invalid Location", "Please select locations from suggestions");
+    return;
+  }
+
+  setConfirmLoading(true);
+
+  try {
+    const token = await getToken();
+    console.log("TOKEN:", token);
+
+    if (!token) {
+      Alert.alert("Not Logged In", "Please login first");
       return;
     }
 
-    setConfirmLoading(true);
+    // ✅ Extract userId from JWT token
+    const getUserIdFromToken = (token: string) => {
+  try {
+    const base64Payload = token.split('.')[1];
+    const payload = JSON.parse(atob(base64Payload));
 
-    try {
-      const token = await getToken();
-      if (!token) {
-        Alert.alert("Not Logged In", "Please login first");
-        return;
-      }
+    console.log("DECODED PAYLOAD:", payload);
 
-      const rideData = {
-        userId: "d3f0a8b4-5c2f-4a1e-9f1a-123456789abc",
-        driverId: "a33a0986-32c4-485e-bc19-08de949ca2b2",
-        pickupLocation: pickup,
-        dropoffLocation: destination,
-      };
+    // ✅ Support BOTH formats
+    return (
+      payload.sub ||
+      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]
+    );
+  } catch (error) {
+    console.log("Token decode error:", error);
+    return null;
+  }
+};
 
-      await axios.post(`${API_BASE_URL}/api/ride/request`, rideData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    const userId = getUserIdFromToken(token);
 
-      Alert.alert("Success!", "Your ride request has been sent successfully!");
-      setShowPanel(false);
-
-    } catch (error: any) {
-      console.error(error);
-      if (error.response?.status === 401) {
-        Alert.alert("Session Expired", "Please login again");
-      } else {
-        Alert.alert("Failed", "Could not request ride. Please try again.");
-      }
-    } finally {
-      setConfirmLoading(false);
+    if (!userId) {
+      Alert.alert("Error", "Invalid user session");
+      return;
     }
-  };
+
+    const rideData = {
+      // userId: userId, 
+      pickupLocation: pickup,
+      pickupLatitude: parseFloat(selectedPickup.lat),
+      pickupLongitude: parseFloat(selectedPickup.lon),
+      dropoffLocation: destination,
+      dropLatitude: parseFloat(selectedDestination.lat),
+      dropLongitude: parseFloat(selectedDestination.lon),
+    };
+
+    console.log("SENDING DATA:", rideData);
+
+    await axios.post(`${API_BASE_URL}/api/ride/request`, rideData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    Alert.alert("Success", "Ride requested successfully!");
+    setShowPanel(false);
+
+    // ✅ Navigate to MapScreen
+    router.push({
+      pathname: "/map",
+      params: { ride: JSON.stringify(rideData) },
+    });
+
+  } catch (error: any) {
+    console.log("ERROR:", error.response?.data || error.message);
+
+    Alert.alert(
+      "Error",
+      error.response?.data || "Failed to request ride"
+    );
+  } finally {
+    setConfirmLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>
@@ -200,7 +252,6 @@ export default function RideScreen() {
 
           <View style={styles.panel}>
             <View style={styles.dragHandle} />
-
             <Text style={styles.panelTitle}>Set Locations</Text>
 
             {/* Pickup */}
@@ -213,7 +264,7 @@ export default function RideScreen() {
                 value={pickup}
                 onChangeText={(text) => {
                   setPickup(text);
-                  fetchSuggestions(text, 'pickup');
+                  fetchPickupDebounced(text); // ✅ Debounced
                 }}
               />
               {loadingPickup && <ActivityIndicator size="small" color="#2563eb" />}
@@ -246,7 +297,7 @@ export default function RideScreen() {
                 value={destination}
                 onChangeText={(text) => {
                   setDestination(text);
-                  fetchSuggestions(text, 'destination');
+                  fetchDestinationDebounced(text); // ✅ Debounced
                 }}
               />
               {loadingDestination && <ActivityIndicator size="small" color="#2563eb" />}
@@ -285,4 +336,4 @@ export default function RideScreen() {
       )}
     </View>
   );
-}
+} 

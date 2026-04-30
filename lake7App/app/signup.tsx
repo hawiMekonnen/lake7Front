@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
 import { styles } from '@/styles/signup.styles';
@@ -13,48 +13,51 @@ export default function Signup() {
 
   const router = useRouter();
 
-  const handleSignup = async () => {
-    console.log('Starting signup process'); // Debug log
-    console.log('Form values:', { fullname, email, password });
+  const validateEmail = (email: string) => {
+    return email.endsWith('@gmail.com');
+  };
 
-    // Basic validation
+  const validatePassword = (password: string) => {
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$/;
+    return regex.test(password);
+  };
+
+  const handleSignup = async () => {
     if (!fullname || !email || !password) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+    if (!validateEmail(email)) {
+      Alert.alert('Error', 'Email must be a valid Gmail address (e.g., user@gmail.com)');
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      Alert.alert(
+        'Error',
+        'Password must be at least 6 characters and include uppercase, lowercase, number, and symbol'
+      );
       return;
     }
 
     setLoading(true);
-    console.log('Sending request to backend'); // Debug log
 
     try {
-      const response = await axios.post('http://192.168.137.237:5260/api/auth/register', {
-        fullname: fullname,
-        email: email,
-        password: password,
+      const response = await axios.post('http://192.168.137.218:5260/api/auth/register', {
+        fullname,
+        email,
+        password,
       }, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
-      console.log('Response received:', response.data); // Debug log
-
-      // If successful
       setSignupSuccess(true);
       Alert.alert('Success', 'Account created successfully!');
-
     } catch (error: any) {
-      console.error('Error details:', error); // More detailed error log
-
       const errorMessage = error.response?.data?.message 
         || error.response?.data 
         || 'Registration failed. Please try again.';
-
       Alert.alert('Registration Failed', errorMessage);
     } finally {
       setLoading(false);
@@ -64,7 +67,6 @@ export default function Signup() {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.backLinkRow} onPress={() => router.push('/')}>
-        
         <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
 
@@ -107,10 +109,7 @@ export default function Signup() {
 
           <TouchableOpacity 
             style={[styles.button, loading && styles.buttonDisabled]} 
-            onPress={() => {
-              console.log('Signup button pressed');
-              handleSignup();
-            }}
+            onPress={handleSignup}
             disabled={loading}
           >
             {loading ? (
