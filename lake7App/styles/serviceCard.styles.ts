@@ -1,33 +1,64 @@
-import { StyleSheet} from "react-native";
+import { StyleSheet } from "react-native";
 
 export const serviceCardStyles = StyleSheet.create({
+  touchable: {
+    flex: 1,
+  },
   card: {
-    height: 180,
-    borderRadius: 20,
+    height: 220, // Slightly taller
+    borderRadius: 28,
     overflow: 'hidden',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FFFFFF',
     position: 'relative',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 15,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  decorCircle: {
+    position: 'absolute',
+    top: -20,
+    right: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#EFF6FF',
+    opacity: 0.8,
   },
   image: {
     width: '100%',
-    height: '100%',
+    height: '55%',
+    marginTop: 10,
   },
-  overlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+  contentContainer: {
     padding: 16,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
-    color: '#fff',
+    color: '#1E40AF',
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  subtitle: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  arrowContainer: {
+    marginTop: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
