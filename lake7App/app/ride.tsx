@@ -188,20 +188,28 @@ const confirmRide = async () => {
 
     console.log("SENDING DATA:", rideData);
 
-    await axios.post(`${API_BASE_URL}/api/ride/request`, rideData, {
+    const response = await axios.post(`${API_BASE_URL}/api/ride/request`, rideData, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
 
+    const createdRide = response.data;
+
     Alert.alert("Success", "Ride requested successfully!");
     setShowPanel(false);
 
-    // ✅ Navigate to MapScreen
+    // ✅ Navigate to MapScreen with Ride ID
     router.push({
       pathname: "/map",
-      params: { ride: JSON.stringify(rideData) },
+      params: { 
+        ride: JSON.stringify({
+          ...rideData,
+          id: createdRide.id,
+          userId: userId
+        }) 
+      },
     });
 
   } catch (error: any) {
