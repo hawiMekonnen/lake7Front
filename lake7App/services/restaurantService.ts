@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://192.168.137.218:5260/api';
+const API_BASE = 'http://192.168.137.234:5260/api';
 
 export const restaurantService = {
   getRestaurants: async () => {

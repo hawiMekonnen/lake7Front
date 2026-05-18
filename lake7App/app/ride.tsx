@@ -18,7 +18,7 @@ import { styles } from '@/styles/ride.styles';
 import { useRouter } from 'expo-router';
 import { decode as atob } from 'base-64';
 
-const API_BASE_URL = 'http://10.15.231.85:5260';
+const API_BASE_URL = 'http://192.168.137.234:5260';
 
 export default function RideScreen() {
   const router = useRouter();
@@ -151,23 +151,19 @@ const confirmRide = async () => {
     }
 
     // ✅ Extract userId from JWT token
-    const getUserIdFromToken = (token: string) => {
-  try {
-    const base64Payload = token.split('.')[1];
-    const payload = JSON.parse(atob(base64Payload));
-
-    console.log("DECODED PAYLOAD:", payload);
-
-    // ✅ Support BOTH formats
-    return (
-      payload.sub ||
-      payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]
-    );
-  } catch (error) {
-    console.log("Token decode error:", error);
-    return null;
-  }
-};
+    const getUserIdFromToken = (tok: string) => {
+      try {
+        const base64Payload = tok.split('.')[1];
+        const payload = JSON.parse(atob(base64Payload));
+        return (
+          payload.sub ||
+          payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]
+        );
+      } catch (error) {
+        console.log("Token decode error:", error);
+        return null;
+      }
+    };
 
     const userId = getUserIdFromToken(token);
 
@@ -176,49 +172,25 @@ const confirmRide = async () => {
       return;
     }
 
-    const rideData = {
-      // userId: userId, 
-      pickupLocation: pickup,
-      pickupLatitude: parseFloat(selectedPickup.lat),
-      pickupLongitude: parseFloat(selectedPickup.lon),
-      dropoffLocation: destination,
-      dropLatitude: parseFloat(selectedDestination.lat),
-      dropLongitude: parseFloat(selectedDestination.lon),
-    };
-
-    console.log("SENDING DATA:", rideData);
-
-    const response = await axios.post(`${API_BASE_URL}/api/ride/request`, rideData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const createdRide = response.data;
-
-    Alert.alert("Success", "Ride requested successfully!");
     setShowPanel(false);
 
-    // ✅ Navigate to MapScreen with Ride ID
+    // ✅ Navigate to MapScreen with locations (No ride requested in database yet!)
     router.push({
       pathname: "/map",
       params: { 
-        ride: JSON.stringify({
-          ...rideData,
-          id: createdRide.id,
-          userId: userId
-        }) 
+        pickupLocation: pickup,
+        pickupLatitude: selectedPickup.lat.toString(),
+        pickupLongitude: selectedPickup.lon.toString(),
+        dropoffLocation: destination,
+        dropLatitude: selectedDestination.lat.toString(),
+        dropLongitude: selectedDestination.lon.toString(),
+        userId: userId
       },
     });
 
   } catch (error: any) {
-    console.log("ERROR:", error.response?.data || error.message);
-
-    Alert.alert(
-      "Error",
-      error.response?.data || "Failed to request ride"
-    );
+    console.log("ERROR:", error.message);
+    Alert.alert("Error", "Failed to confirm locations");
   } finally {
     setConfirmLoading(false);
   }

@@ -7,7 +7,7 @@ import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { getToken } from '../src/utils/auth';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_BASE_URL = 'http://10.15.231.85:5260';
+const API_BASE_URL = 'http://192.168.137.234:5260';
 const { width } = Dimensions.get('window');
 
 export default function MapScreen() {
@@ -16,7 +16,17 @@ export default function MapScreen() {
 
   let parsed: any = null;
   try {
-    if (params.ride) {
+    if (params.pickupLocation) {
+      parsed = {
+        pickupLocation: params.pickupLocation as string,
+        pickupLatitude: parseFloat(params.pickupLatitude as string),
+        pickupLongitude: parseFloat(params.pickupLongitude as string),
+        dropoffLocation: params.dropoffLocation as string,
+        dropLatitude: parseFloat(params.dropLatitude as string),
+        dropLongitude: parseFloat(params.dropLongitude as string),
+        userId: params.userId as string,
+      };
+    } else if (params.ride) {
       parsed = JSON.parse(params.ride as string);
     }
   } catch (error) {
@@ -27,8 +37,9 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [distanceKm, setDistanceKm] = useState<number>(0);
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
-  const [rideStatus, setRideStatus] = useState<'pending' | 'accepted'>('pending');
+  const [rideStatus, setRideStatus] = useState<'idle' | 'pending' | 'accepted'>('idle');
   const [acceptedRideData, setAcceptedRideData] = useState<any>(null);
+  const [requestingRide, setRequestingRide] = useState(false);
 
   useEffect(() => {
     if (parsed) {
@@ -99,6 +110,52 @@ export default function MapScreen() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
+  const requestRide = async () => {
+    if (!selectedVehicle) {
+      Alert.alert("Error", "Please select a vehicle type first");
+      return;
+    }
+
+    setRequestingRide(true);
+
+    try {
+      const token = await getToken();
+      if (!token) {
+        Alert.alert("Not Logged In", "Please login first");
+        return;
+      }
+
+      const rideData = {
+        pickupLocation: parsed.pickupLocation,
+        pickupLatitude: parsed.pickupLatitude,
+        pickupLongitude: parsed.pickupLongitude,
+        dropoffLocation: parsed.dropoffLocation,
+        dropLatitude: parsed.dropLatitude,
+        dropLongitude: parsed.dropLongitude,
+        vehicleType: selectedVehicle,
+      };
+
+      console.log("SENDING RIDE REQUEST:", rideData);
+
+      const response = await axios.post(`${API_BASE_URL}/api/ride/request`, rideData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log("RIDE REQUEST SUCCESS:", response.data);
+      setRideStatus('pending'); // Transitions to pending searching screen!
+      Alert.alert("Ride Requested", `Searching for nearby ${selectedVehicle} drivers...`);
+
+    } catch (error: any) {
+      console.error("Ride request failure:", error.response?.data || error.message);
+      Alert.alert("Error", error.response?.data || "Failed to request ride");
+    } finally {
+      setRequestingRide(false);
+    }
+  };
+
   const vehicleCategories = [
     { type: "Economy", multiplier: 1.0, icon: "car-outline" },
     { type: "Classic", multiplier: 1.2, icon: "car-sport-outline" },
@@ -137,9 +194,9 @@ export default function MapScreen() {
           <Ionicons name="arrow-back" size={24} color="#1e293b" />
         </TouchableOpacity>
       </View>
-
+      
       <View style={styles.panel}>
-        {rideStatus === 'pending' ? (
+        {rideStatus === 'idle' ? (
           <>
             <Text style={styles.panelTitle}>Select Vehicle</Text>
             <FlatList
@@ -164,22 +221,57 @@ export default function MapScreen() {
               contentContainerStyle={styles.listContent}
             />
             <TouchableOpacity 
-              style={[styles.confirmButton, !selectedVehicle && styles.disabledButton]}
-              disabled={!selectedVehicle}
-              onPress={() => Alert.alert("Requesting...", "Searching for nearby drivers.")}
+              style={[styles.confirmButton, (!selectedVehicle || requestingRide) && styles.disabledButton]}
+              disabled={!selectedVehicle || requestingRide}
+              onPress={requestRide}
             >
-              <Text style={styles.confirmText}>Request {selectedVehicle || "Ride"}</Text>
+              {requestingRide ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.confirmText}>Request {selectedVehicle || "Ride"}</Text>
+              )}
             </TouchableOpacity>
           </>
+        ) : rideStatus === 'pending' ? (
+          <View style={styles.acceptedContainer}>
+            <ActivityIndicator size="large" color="#004AAD" style={{ marginBottom: 15 }} />
+            <Text style={styles.acceptedTitle}>Searching for Drivers...</Text>
+            <Text style={styles.acceptedSub}>Finding a nearby {selectedVehicle} driver for you.</Text>
+            <View style={[styles.driverInfo, { borderLeftColor: '#004AAD', backgroundColor: '#f0f9ff' }]}>
+              <Text style={styles.driverLabel}>Pickup: <Text style={{fontWeight: '400'}}>{parsed.pickupLocation}</Text></Text>
+              <Text style={styles.driverLabel}>Destination: <Text style={{fontWeight: '400'}}>{parsed.dropoffLocation}</Text></Text>
+            </View>
+          </View>
         ) : (
           <View style={styles.acceptedContainer}>
-            <View style={styles.successBadge}>
-              <Ionicons name="checkmark-circle" size={48} color="#10b981" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+              <Image 
+                source={{ uri: acceptedRideData?.driverProfilePicture 
+                  ? (acceptedRideData.driverProfilePicture.startsWith('data:') 
+                      ? acceptedRideData.driverProfilePicture 
+                      : `data:image/jpeg;base64,${acceptedRideData.driverProfilePicture}`)
+                  : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80' 
+                }} 
+                style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#e2e8f0', marginRight: 15 }} 
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1e293b' }} numberOfLines={1}>
+                  {acceptedRideData?.driverName || "Hawi Mekonnen"}
+                </Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#004AAD', marginTop: 2 }}>
+                  Status: Arriving
+                </Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => Alert.alert("Calling Driver", `Dialing ${acceptedRideData?.driverPhoneNumber || '+251 911 00 22 33'}`)}
+                style={{ backgroundColor: '#F0F9FF', padding: 12, borderRadius: 20 }}
+              >
+                <Ionicons name="call" size={20} color="#004AAD" />
+              </TouchableOpacity>
             </View>
-            <Text style={styles.acceptedTitle}>Driver Accepted!</Text>
-            <Text style={styles.acceptedSub}>Your driver is on the way.</Text>
-            <View style={styles.driverInfo}>
-              <Text style={styles.driverLabel}>Status: <Text style={{color: '#10b981'}}>Arriving</Text></Text>
+
+            <View style={[styles.driverInfo, { marginTop: 0 }]}>
+              <Text style={styles.driverLabel}>Phone: <Text style={{fontWeight: '500', color: '#475569'}}>{acceptedRideData?.driverPhoneNumber || "+251 911 00 22 33"}</Text></Text>
               <Text style={styles.driverLabel}>Destination: <Text style={{fontWeight: '400'}}>{parsed.dropoffLocation}</Text></Text>
             </View>
           </View>

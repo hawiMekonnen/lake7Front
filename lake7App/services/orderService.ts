@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE = 'http://192.168.137.218:5260/api';
+const API_BASE = 'http://192.168.137.234:5260/api';
 
 export interface OrderItem {
   id: string;

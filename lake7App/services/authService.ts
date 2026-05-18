@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE = 'http://192.168.137.218:5260/api'; // Using the IP from signup.tsx
+const API_BASE = 'http://192.168.137.234:5260/api'; // Using the active backend IP
 
 export const signup = async (email: string, password: string, fullname: string, phoneNumber: string = '') => {
   const response = await axios.post(`${API_BASE}/auth/register`, {
