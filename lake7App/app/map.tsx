@@ -7,7 +7,7 @@ import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { getToken } from '../src/utils/auth';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_BASE_URL = 'http://192.168.137.218:5260';
+const API_BASE_URL = 'http://10.15.231.85:5260';
 const { width } = Dimensions.get('window');
 
 export default function MapScreen() {

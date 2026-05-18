@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { getToken } from '../src/utils/auth';
 import { styles } from '@/styles/delivery.styles';
+import { placeOrder, OrderPayload } from '../services/orderService';
 
 const API_BASE_URL = 'http://192.168.137.218:5260';
 
@@ -123,29 +124,31 @@ export default function DeliveryScreen() {
     setConfirmLoading(true);
 
     try {
-      const token = await getToken();
-      if (!token) {
-        Alert.alert("Not Logged In", "Please login first");
-        return;
-      }
-
-      const deliveryData = {
-        userId: "d3f0a8b4-5c2f-4a1e-9f1a-123456789abc",
-        restaurant: restaurant,
-        deliveryLocation: destination,
+      const payload: OrderPayload = {
+        senderName: restaurant, // Restaurant is the sender
+        senderPhone: "0911000000", // Placeholder
+        receiverName: "User", // Placeholder or get from context
+        receiverPhone: "0911000001", // Placeholder
+        pickupAddress: restaurant,
+        dropoffAddress: destination,
+        pickupLatitude: 9.03, // Addis Ababa default
+        pickupLongitude: 38.74,
+        dropoffLatitude: 9.03,
+        dropoffLongitude: 38.74,
+        itemDescription: "Food Order",
+        estimatedWeight: 1,
+        estimatedPrice: 150,
+        paymentMethod: "Cash",
+        paymentAmount: 150,
       };
 
-      await axios.post(`${API_BASE_URL}/api/delivery/request`, deliveryData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      await placeOrder(payload);
 
       Alert.alert("Success!", "Your food delivery request has been sent successfully!");
       setShowPanel(false);
 
     } catch (error: any) {
+
       console.error(error);
       if (error.response?.status === 401) {
         Alert.alert("Session Expired", "Please login again");

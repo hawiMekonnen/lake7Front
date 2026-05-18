@@ -180,7 +180,7 @@ export default function HomeScreen() {
           title="DELIVERY"
           subtitle="Food & More"
           image={require('../../assets/images/food.png')}
-          onPress={() => router.push('/delivery')}
+          onPress={() => router.push('../restaurants')}
         />
       </View>
 
@@ -246,4 +246,4 @@ export default function HomeScreen() {
       </Modal>
     </ScrollView>
   );
-}
+}

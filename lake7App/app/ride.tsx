@@ -18,7 +18,7 @@ import { styles } from '@/styles/ride.styles';
 import { useRouter } from 'expo-router';
 import { decode as atob } from 'base-64';
 
-const API_BASE_URL = 'http://192.168.137.218:5260';
+const API_BASE_URL = 'http://10.15.231.85:5260';
 
 export default function RideScreen() {
   const router = useRouter();
