@@ -3,6 +3,7 @@ import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndi
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { restaurantService } from '../../services/restaurantService';
+import { useCart } from '../../src/context/CartContext';
 import { styles } from '@/styles/menu.styles';
 
 export default function RestaurantMenuScreen() {
@@ -11,6 +12,7 @@ export default function RestaurantMenuScreen() {
   const [menu, setMenu] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { addToCart, getCartCount } = useCart();
 
   useEffect(() => {
     if (id) {
@@ -43,7 +45,10 @@ export default function RestaurantMenuScreen() {
       {item.imageUrl && (
         <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
       )}
-      <TouchableOpacity style={styles.addButton}>
+      <TouchableOpacity 
+        style={styles.addButton}
+        onPress={() => addToCart(item, restaurant)}
+      >
         <Ionicons name="add" size={20} color="white" />
       </TouchableOpacity>
     </View>
@@ -56,6 +61,8 @@ export default function RestaurantMenuScreen() {
       </View>
     );
   }
+
+  const cartCount = getCartCount();
 
   return (
     <View style={styles.container}>
@@ -96,9 +103,14 @@ export default function RestaurantMenuScreen() {
         </View>
       </ScrollView>
       
-      <TouchableOpacity style={styles.cartButton}>
-        <Text style={styles.cartButtonText}>View Cart (0)</Text>
-      </TouchableOpacity>
+      {cartCount > 0 && (
+        <TouchableOpacity 
+          style={styles.cartButton}
+          onPress={() => router.push('/checkout' as any)}
+        >
+          <Text style={styles.cartButtonText}>View Cart ({cartCount})</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

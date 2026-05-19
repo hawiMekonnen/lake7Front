@@ -1,5 +1,5 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { getToken } from '../src/utils/auth';
 
 const API_BASE = 'http://192.168.137.234:5260/api';
 
@@ -30,7 +30,7 @@ export interface OrderPayload {
 
 
 export const placeOrder = async (orderPayload: OrderPayload) => {
-  const token = await SecureStore.getItemAsync('jwt');
+  const token = await getToken();
   const response = await axios.post(`${API_BASE}/order/place-delivery`, orderPayload, {
     headers: {
       Authorization: `Bearer ${token}`
@@ -40,7 +40,7 @@ export const placeOrder = async (orderPayload: OrderPayload) => {
 };
 
 export const getOrder = async (orderId: string) => {
-  const token = await SecureStore.getItemAsync('jwt');
+  const token = await getToken();
   const response = await axios.get(`${API_BASE}/order/${orderId}`, {
     headers: {
       Authorization: `Bearer ${token}`
@@ -48,3 +48,4 @@ export const getOrder = async (orderId: string) => {
   });
   return response.data;
 };
+

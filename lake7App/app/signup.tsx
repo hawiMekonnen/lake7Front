@@ -3,15 +3,19 @@ import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } fro
 import { useRouter } from 'expo-router';
 import axios from 'axios';
 import { styles } from '@/styles/signup.styles';
+import { saveToken } from '../src/utils/auth';
+import { useAuth } from '../src/context/AuthContext';
 
 export default function Signup() {
   const [fullname, setFullname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
 
   const router = useRouter();
+  const { login } = useAuth();
 
   const validateEmail = (email: string) => {
     return email.endsWith('@gmail.com');
@@ -23,7 +27,7 @@ export default function Signup() {
   };
 
   const handleSignup = async () => {
-    if (!fullname || !email || !password) {
+    if (!fullname || !email || !password || !phoneNumber) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
@@ -48,12 +52,23 @@ export default function Signup() {
         fullname,
         email,
         password,
+        phoneNumber,
       }, {
         headers: { 'Content-Type': 'application/json' },
       });
 
-      setSignupSuccess(true);
-      Alert.alert('Success', 'Account created successfully!');
+      const token = response.data.token;
+      if (token) {
+        await saveToken(token);
+        login(token);
+        setSignupSuccess(true);
+        Alert.alert('Success', 'Account created successfully!', [
+          { text: 'OK', onPress: () => router.replace('/(tabs)') }
+        ]);
+      } else {
+        setSignupSuccess(true);
+        Alert.alert('Success', 'Account created successfully!');
+      }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message 
         || error.response?.data 
@@ -76,8 +91,8 @@ export default function Signup() {
         <View style={styles.successBox}>
           <Text style={styles.successTitle}>Sign up successful!</Text>
           <Text style={styles.successMessage}>Your account has been created.</Text>
-          <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/')}>
-            <Text style={styles.homeButtonText}>&lt; Return to home</Text>
+          <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/(tabs)')}>
+            <Text style={styles.homeButtonText}>&lt; Go to Home</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -96,6 +111,15 @@ export default function Signup() {
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Phone Number"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="phone-pad"
             autoCapitalize="none"
           />
 
