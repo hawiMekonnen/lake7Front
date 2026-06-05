@@ -22,7 +22,7 @@ import * as Location from 'expo-location';
 import axios from 'axios';
 
 const { width } = Dimensions.get('window');
-const API_BASE_URL = 'http://192.168.137.234:5260';
+const API_BASE_URL = 'http://10.246.207.228:5260';
 
 export default function CheckoutScreen() {
   const router = useRouter();

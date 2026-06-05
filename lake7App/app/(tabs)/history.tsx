@@ -1,71 +1,133 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { historyStyles as styles } from '../../styles/history.styles';
+import { getUserOrders } from '../../services/orderService';
+import { getUserRides } from '../../services/rideService';
 
-const HISTORY_DATA = [
-  {
-    id: '1',
-    type: 'ride',
-    title: 'Ride to Bole Airport',
-    date: 'May 3, 2024 • 10:30 AM',
-    price: 'ETB 250.00',
-    status: 'Completed',
-    icon: 'car-sport-outline'
-  },
-  {
-    id: '2',
-    type: 'delivery',
-    title: 'Burger House - 2 items',
-    date: 'May 2, 2024 • 8:15 PM',
-    price: 'ETB 420.00',
-    status: 'Completed',
-    icon: 'fast-food-outline'
-  },
-  {
-    id: '3',
-    type: 'ride',
-    title: 'Ride to Piassa',
-    date: 'May 1, 2024 • 9:00 AM',
-    price: 'ETB 180.00',
-    status: 'Canceled',
-    icon: 'car-sport-outline'
-  },
-  {
-    id: '4',
-    type: 'delivery',
-    title: 'Chicken Cottage',
-    date: 'Apr 28, 2024 • 1:20 PM',
-    price: 'ETB 650.00',
-    status: 'Completed',
-    icon: 'fast-food-outline'
-  },
-  {
-    id: '5',
-    type: 'ride',
-    title: 'Ride to Saris',
-    date: 'Apr 25, 2024 • 6:45 PM',
-    price: 'ETB 310.00',
-    status: 'Completed',
-    icon: 'car-sport-outline'
-  }
-];
+interface HistoryItem {
+  id: string;
+  type: string;
+  title: string;
+  date: string;
+  rawDate: string; // for sorting
+  price: string;
+  status: string;
+  icon: string;
+}
 
 export default function HistoryPage() {
   const [filter, setFilter] = useState('All');
+  const [historyData, setHistoryData] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+      const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+      return `${date.toLocaleDateString('en-US', options)} • ${date.toLocaleTimeString('en-US', timeOptions)}`;
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  const parseOrderTitle = (order: any) => {
+    if (order.delivery?.itemDescription) {
+      try {
+        const parsed = JSON.parse(order.delivery.itemDescription);
+        if (parsed.items && Array.isArray(parsed.items)) {
+          return parsed.items.map((i: any) => `${i.name} (x${i.quantity})`).join(', ');
+        }
+      } catch (e) {
+        return order.delivery.itemDescription;
+      }
+    }
+    return order.delivery?.packageDetails || 'Delivery Order';
+  };
+
+  const mapOrderStatus = (status: string) => {
+    if (status === 'Completed' || status === 'Delivered') return 'Completed';
+    if (status === 'Cancelled') return 'Canceled';
+    return status;
+  };
+
+  const fetchHistory = async (showLoader = true) => {
+    if (showLoader) setLoading(true);
+    try {
+      const [orders, rides] = await Promise.all([
+        getUserOrders().catch((err) => {
+          console.error('Error fetching user orders:', err);
+          return [];
+        }),
+        getUserRides().catch((err) => {
+          console.error('Error fetching user rides:', err);
+          return [];
+        }),
+      ]);
+
+      const formattedRides: HistoryItem[] = (rides || []).map((ride: any) => ({
+        id: ride.id,
+        type: 'ride',
+        title: `Ride to ${ride.dropoffLocation || 'Destination'}`,
+        date: formatDate(ride.requestedAt),
+        rawDate: ride.requestedAt,
+        price: `ETB ${(ride.fare || 0).toFixed(2)}`,
+        status: mapOrderStatus(ride.status),
+        icon: 'car-sport-outline',
+      }));
+
+      const formattedOrders: HistoryItem[] = (orders || []).map((order: any) => ({
+        id: order.id,
+        type: 'delivery',
+        title: parseOrderTitle(order),
+        date: formatDate(order.createdAt),
+        rawDate: order.createdAt,
+        price: `ETB ${(order.totalAmount || 0).toFixed(2)}`,
+        status: mapOrderStatus(order.status),
+        icon: 'fast-food-outline',
+      }));
+
+      const combined = [...formattedRides, ...formattedOrders].sort(
+        (a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime()
+      );
+
+      setHistoryData(combined);
+    } catch (error) {
+      console.error('Error fetching history:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchHistory(false);
+  }, []);
 
   const filteredData = filter === 'All' 
-    ? HISTORY_DATA 
-    : HISTORY_DATA.filter(item => item.type === filter.toLowerCase().slice(0, -1) || item.type === filter.toLowerCase());
+    ? historyData 
+    : historyData.filter(item => {
+        if (filter === 'Rides') return item.type === 'ride';
+        if (filter === 'Food') return item.type === 'delivery';
+        return true;
+      });
 
-  const renderItem = ({ item }: { item: typeof HISTORY_DATA[0] }) => (
+  const renderItem = ({ item }: { item: HistoryItem }) => (
     <TouchableOpacity style={styles.historyItem} activeOpacity={0.7}>
       <View style={styles.iconContainer}>
         <Ionicons name={item.icon as any} size={24} color="#1E40AF" />
       </View>
       
       <View style={styles.itemContent}>
-        <Text style={styles.itemTitle}>{item.title}</Text>
+        <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
         <Text style={styles.itemDate}>{item.date}</Text>
       </View>
       
@@ -106,24 +168,33 @@ export default function HistoryPage() {
         ))}
       </View>
 
-      <FlatList
-        data={filteredData}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={{ alignItems: 'center', marginTop: 100 }}>
-            <Ionicons name="receipt-outline" size={64} color="#CBD5E1" />
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#64748B', marginTop: 16 }}>
-              No activity yet
-            </Text>
-            <Text style={{ fontSize: 14, color: '#94A3B8', marginTop: 8 }}>
-              Your {filter.toLowerCase()} history will appear here
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#1E40AF" />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredData}
+          renderItem={renderItem}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1E40AF']} />
+          }
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', marginTop: 100 }}>
+              <Ionicons name="receipt-outline" size={64} color="#CBD5E1" />
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#64748B', marginTop: 16 }}>
+                No activity yet
+              </Text>
+              <Text style={{ fontSize: 14, color: '#94A3B8', marginTop: 8 }}>
+                Your {filter.toLowerCase() === 'all' ? 'activity' : filter.toLowerCase()} history will appear here
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }

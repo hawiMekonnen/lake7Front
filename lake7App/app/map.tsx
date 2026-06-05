@@ -3,11 +3,11 @@ import { View, ActivityIndicator, Text, FlatList, Image, TouchableOpacity, Style
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import axios from 'axios';
-import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
+import { HubConnectionBuilder, LogLevel, HttpTransportType } from '@microsoft/signalr';
 import { getToken } from '../src/utils/auth';
 import { Ionicons } from '@expo/vector-icons';
 
-const API_BASE_URL = 'http://192.168.137.234:5260';
+const API_BASE_URL = 'http://10.246.207.228:5260';
 const { width } = Dimensions.get('window');
 
 export default function MapScreen() {
@@ -58,16 +58,27 @@ export default function MapScreen() {
       const connection = new HubConnectionBuilder()
         .withUrl(`${API_BASE_URL}/userHub`, {
           accessTokenFactory: () => token || "",
+          skipNegotiation: true,
+          transport: HttpTransportType.WebSockets
         })
         .configureLogging(LogLevel.Information)
         .withAutomaticReconnect()
         .build();
+
+
 
       connection.on('RideAccepted', (rideData) => {
         console.log('Ride Accepted:', rideData);
         setRideStatus('accepted');
         setAcceptedRideData(rideData);
         Alert.alert("Ride Accepted!", "A driver is on the way to pick you up.");
+      });
+
+      connection.on('RideCompleted', (data) => {
+        console.log('Ride Completed:', data);
+        Alert.alert("Ride Completed", data.Message || data.message || `Final fare: ETB ${data.FinalFare || data.finalFare}`);
+        setRideStatus('idle');
+        router.replace('/(tabs)');
       });
 
       await connection.start();
@@ -270,9 +281,23 @@ export default function MapScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.driverInfo, { marginTop: 0 }]}>
-              <Text style={styles.driverLabel}>Phone: <Text style={{fontWeight: '500', color: '#475569'}}>{acceptedRideData?.driverPhoneNumber || "+251 911 00 22 33"}</Text></Text>
-              <Text style={styles.driverLabel}>Destination: <Text style={{fontWeight: '400'}}>{parsed.dropoffLocation}</Text></Text>
+            <View style={[styles.driverInfo, { marginTop: 0, paddingVertical: 10 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="car-outline" size={18} color="#004AAD" style={{ marginRight: 8 }} />
+                <Text style={styles.driverLabel}>Vehicle: <Text style={{fontWeight: '500', color: '#475569'}}>{acceptedRideData?.driverVehicleInfo ? acceptedRideData.driverVehicleInfo.split('|')[0].trim() : "Toyota Vitz"}</Text></Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="barcode-outline" size={18} color="#004AAD" style={{ marginRight: 8 }} />
+                <Text style={styles.driverLabel}>License Plate: <Text style={{fontWeight: '500', color: '#475569'}}>{acceptedRideData?.driverLicensePlate || "B 12345 AA"}</Text></Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="call-outline" size={18} color="#004AAD" style={{ marginRight: 8 }} />
+                <Text style={styles.driverLabel}>Phone: <Text style={{fontWeight: '500', color: '#475569'}}>{acceptedRideData?.driverPhoneNumber || "+251 911 00 22 33"}</Text></Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="navigate-circle-outline" size={18} color="#004AAD" style={{ marginRight: 8 }} />
+                <Text style={styles.driverLabel}>Destination: <Text style={{fontWeight: '400', color: '#475569'}}>{parsed.dropoffLocation}</Text></Text>
+              </View>
             </View>
           </View>
         )}

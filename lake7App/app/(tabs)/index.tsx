@@ -62,8 +62,15 @@ export default function HomeScreen() {
     }
   };
 
-  const handleQuickAction = (service: string) => {
-    Alert.alert("Coming Soon", `${service} service is being integrated and will be available soon!`);
+  const quickActionRoutes = {
+    Package: '/package',
+    Courier: '/courier',
+    Carpool: '/carpool',
+    Grocery: '/grocery',
+  } as const;
+
+  const handleQuickAction = (service: keyof typeof quickActionRoutes) => {
+    router.push(quickActionRoutes[service]);
   };
 
   const handleSavedPlace = (place: string) => {

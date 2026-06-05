@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken } from '../src/utils/auth';
 
-const API_BASE = 'http://192.168.137.234:5260/api';
+const API_BASE = 'http://10.246.207.228:5260/api';
 
 export interface OrderItem {
   id: string;
@@ -42,6 +42,16 @@ export const placeOrder = async (orderPayload: OrderPayload) => {
 export const getOrder = async (orderId: string) => {
   const token = await getToken();
   const response = await axios.get(`${API_BASE}/order/${orderId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  return response.data;
+};
+
+export const getUserOrders = async () => {
+  const token = await getToken();
+  const response = await axios.get(`${API_BASE}/order/user`, {
     headers: {
       Authorization: `Bearer ${token}`
     }
