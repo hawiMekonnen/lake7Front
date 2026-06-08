@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { historyStyles as styles } from '../../styles/history.styles';
 import { getUserOrders } from '../../services/orderService';
 import { getUserRides } from '../../services/rideService';
+import { useRouter } from 'expo-router';
 
 interface HistoryItem {
   id: string;
@@ -14,13 +15,54 @@ interface HistoryItem {
   price: string;
   status: string;
   icon: string;
+  originalItem: any;
 }
 
+
 export default function HistoryPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState('All');
   const [historyData, setHistoryData] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const handleItemPress = (item: HistoryItem) => {
+    if (item.type === 'ride') {
+      const status = item.originalItem.status;
+      if (status === 'Pending' || status === 'Accepted' || status === 'InProgress') {
+        router.push({
+          pathname: "/map",
+          params: { 
+            ride: JSON.stringify(item.originalItem)
+          }
+        });
+      } else {
+        router.push({
+          // cast pathname to any to satisfy router typings for custom routes
+          pathname: "/transaction-detail" as any,
+          params: {
+            item: JSON.stringify(item)
+          }
+        });
+      }
+    } else { // delivery
+      const status = item.originalItem.status;
+      if (status !== 'Completed' && status !== 'Cancelled' && status !== 'Delivered') {
+        router.push({
+          pathname: "/order-tracking",
+          params: { orderId: item.id }
+        });
+      } else {
+        router.push({
+          // cast pathname to any to satisfy router typings for custom routes
+          pathname: "/transaction-detail" as any,
+          params: {
+            item: JSON.stringify(item)
+          }
+        });
+      }
+    }
+  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -77,6 +119,7 @@ export default function HistoryPage() {
         price: `ETB ${(ride.fare || 0).toFixed(2)}`,
         status: mapOrderStatus(ride.status),
         icon: 'car-sport-outline',
+        originalItem: ride,
       }));
 
       const formattedOrders: HistoryItem[] = (orders || []).map((order: any) => ({
@@ -88,6 +131,7 @@ export default function HistoryPage() {
         price: `ETB ${(order.totalAmount || 0).toFixed(2)}`,
         status: mapOrderStatus(order.status),
         icon: 'fast-food-outline',
+        originalItem: order,
       }));
 
       const combined = [...formattedRides, ...formattedOrders].sort(
@@ -121,7 +165,7 @@ export default function HistoryPage() {
       });
 
   const renderItem = ({ item }: { item: HistoryItem }) => (
-    <TouchableOpacity style={styles.historyItem} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.historyItem} activeOpacity={0.7} onPress={() => handleItemPress(item)}>
       <View style={styles.iconContainer}>
         <Ionicons name={item.icon as any} size={24} color="#1E40AF" />
       </View>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -8,6 +8,7 @@ import { DiscountCard } from '../../components/discountCard';
 import { Ionicons } from '@expo/vector-icons';
 import { styles } from '../../styles/index.styles';
 import { useAuth } from '@/src/context/AuthContext';
+import { useNotification } from '../../src/context/NotificationContext';
 
 export default function HomeScreen() {
   const [isPressed, setIsPressed] = useState(false);
@@ -20,9 +21,11 @@ export default function HomeScreen() {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   });
+  const [notifModalVisible, setNotifModalVisible] = useState(false);
 
   const router = useRouter();
   const { isLoggedIn } = useAuth(); 
+  const { notifications, unreadCount, markAllAsRead, clearNotifications } = useNotification();
 
   const getCurrentLocation = async () => {
     setLocationLoading(true);
@@ -134,12 +137,35 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           {/* Notification Icon */}
-          <TouchableOpacity style={styles.iconContainer}>
+          <TouchableOpacity 
+            style={styles.iconContainer}
+            onPress={() => {
+              setNotifModalVisible(true);
+              markAllAsRead();
+            }}
+          >
             <Ionicons 
               name="notifications-outline" 
               size={24} 
               color="#1E293B" 
             />
+            {unreadCount > 0 && (
+              <View style={{
+                position: 'absolute',
+                top: 8,
+                right: 8,
+                backgroundColor: '#EF4444',
+                borderRadius: 8,
+                width: 16,
+                height: 16,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                  {unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -248,6 +274,89 @@ export default function HomeScreen() {
                 <Marker coordinate={{ latitude: userLocation.latitude, longitude: userLocation.longitude }} />
               </MapView>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Notifications Modal */}
+      <Modal
+        visible={notifModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setNotifModalVisible(false)}
+      >
+        <View style={styles.mapModalContainer}>
+          <View style={[styles.mapModalContent, { height: '70%' }]}>
+            <View style={styles.mapModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="notifications" size={22} color="#1E40AF" style={{ marginRight: 8 }} />
+                <Text style={styles.mapModalTitle}>Notifications</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {notifications.length > 0 && (
+                  <TouchableOpacity onPress={clearNotifications} style={{ padding: 4 }}>
+                    <Text style={{ color: '#EF4444', fontWeight: '600', fontSize: 14 }}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setNotifModalVisible(false)} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={24} color="#1E293B" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <FlatList
+              data={notifications}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ padding: 20, gap: 12 }}
+              renderItem={({ item }) => (
+                <View style={{
+                  backgroundColor: '#F8FAFC',
+                  padding: 16,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                }}>
+                  <View style={{
+                    backgroundColor: '#EFF6FF',
+                    padding: 8,
+                    borderRadius: 12,
+                    marginRight: 12,
+                  }}>
+                    <Ionicons name="car-sport-outline" size={20} color="#1E40AF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 4 }}>
+                      {item.title}
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#475569', lineHeight: 20 }}>
+                      {item.message}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 8 }}>
+                      {new Date(item.date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
+                  <Ionicons name="notifications-off-outline" size={64} color="#CBD5E1" />
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#64748B', marginTop: 16 }}>
+                    No notifications yet
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#94A3B8', marginTop: 6, textAlign: 'center', paddingHorizontal: 40 }}>
+                    We'll let you know when your driver completes a ride or when there are updates.
+                  </Text>
+                </View>
+              }
+            />
           </View>
         </View>
       </Modal>

@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import axios from 'axios';
 import { saveToken } from '../src/utils/auth';
 import { useAuth } from '../src/context/AuthContext';
+import { useSignalR } from '../src/context/SignalRContext';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export default function LoginScreen() {
 
   const router = useRouter();
   const { login } = useAuth();
+  const { connectSignalR } = useSignalR();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -22,7 +24,7 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://10.246.207.228:5260/api/auth/login', {
+      const response = await axios.post('http://10.255.49.59:5260/api/auth/login', {
         email,
         password,
       });
@@ -32,6 +34,8 @@ export default function LoginScreen() {
       if (token) {
         await saveToken(token);
         login(token);                    // Update context
+        // Connect SignalR now that we have a valid token
+        connectSignalR();
         Alert.alert('Success', 'Login successful!', [
           { text: 'OK', onPress: () => router.replace('/(tabs)') }
         ]);

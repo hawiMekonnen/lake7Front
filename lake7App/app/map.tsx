@@ -3,16 +3,17 @@ import { View, ActivityIndicator, Text, FlatList, Image, TouchableOpacity, Style
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import axios from 'axios';
-import { HubConnectionBuilder, LogLevel, HttpTransportType } from '@microsoft/signalr';
-import { getToken } from '../src/utils/auth';
 import { Ionicons } from '@expo/vector-icons';
+import { useSignalR } from '../src/context/SignalRContext';
+import { getToken } from '@/src/utils/auth';
 
-const API_BASE_URL = 'http://10.246.207.228:5260';
+const API_BASE_URL = 'http://10.255.49.59:5260';
 const { width } = Dimensions.get('window');
 
 export default function MapScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
+  const { rideAcceptedData, rideCompletedData, clearRideAccepted, clearRideCompleted } = useSignalR();
 
   let parsed: any = null;
   try {
@@ -36,58 +37,50 @@ export default function MapScreen() {
   const [routeCoords, setRouteCoords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [distanceKm, setDistanceKm] = useState<number>(0);
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
-  const [rideStatus, setRideStatus] = useState<'idle' | 'pending' | 'accepted'>('idle');
-  const [acceptedRideData, setAcceptedRideData] = useState<any>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(
+    parsed && parsed.vehicleType ? parsed.vehicleType : null
+  );
+  const [rideStatus, setRideStatus] = useState<'idle' | 'pending' | 'accepted'>(
+    parsed && parsed.status 
+      ? (parsed.status === 'Pending' ? 'pending' : (parsed.status === 'Accepted' || parsed.status === 'InProgress' ? 'accepted' : 'idle'))
+      : 'idle'
+  );
+  const [acceptedRideData, setAcceptedRideData] = useState<any>(
+    parsed && (parsed.status === 'Accepted' || parsed.status === 'InProgress') ? parsed : null
+  );
   const [requestingRide, setRequestingRide] = useState(false);
 
   useEffect(() => {
     if (parsed) {
       fetchRoute();
-      connectHub();
     } else {
       setLoading(false);
     }
   }, []);
 
-  const connectHub = async () => {
-    if (!parsed.userId) return;
-    
-    try {
-      const token = await getToken();
-      const connection = new HubConnectionBuilder()
-        .withUrl(`${API_BASE_URL}/userHub`, {
-          accessTokenFactory: () => token || "",
-          skipNegotiation: true,
-          transport: HttpTransportType.WebSockets
-        })
-        .configureLogging(LogLevel.Information)
-        .withAutomaticReconnect()
-        .build();
-
-
-
-      connection.on('RideAccepted', (rideData) => {
-        console.log('Ride Accepted:', rideData);
-        setRideStatus('accepted');
-        setAcceptedRideData(rideData);
-        Alert.alert("Ride Accepted!", "A driver is on the way to pick you up.");
-      });
-
-      connection.on('RideCompleted', (data) => {
-        console.log('Ride Completed:', data);
-        Alert.alert("Ride Completed", data.Message || data.message || `Final fare: ETB ${data.FinalFare || data.finalFare}`);
-        setRideStatus('idle');
-        router.replace('/(tabs)');
-      });
-
-      await connection.start();
-      await connection.invoke('RegisterUser', parsed.userId);
-      console.log('User SignalR connected');
-    } catch (err) {
-      console.error('SignalR error:', err);
+  // React to global SignalR RideAccepted event
+  useEffect(() => {
+    if (rideAcceptedData) {
+      setRideStatus('accepted');
+      setAcceptedRideData(rideAcceptedData);
+      Alert.alert("Ride Accepted!", "A driver is on the way to pick you up.");
+      clearRideAccepted();
     }
-  };
+  }, [rideAcceptedData]);
+
+  // React to global SignalR RideCompleted event
+  useEffect(() => {
+    if (rideCompletedData) {
+      const fareMsg =
+        rideCompletedData.Message ||
+        rideCompletedData.message ||
+        `Your ride has been completed. Final fare: ETB ${rideCompletedData.FinalFare ?? rideCompletedData.finalFare ?? 0}`;
+      Alert.alert("Ride Completed", fareMsg);
+      setRideStatus('idle');
+      clearRideCompleted();
+      router.replace('/(tabs)');
+    }
+  }, [rideCompletedData]);
 
   const fetchRoute = async () => {
     try {

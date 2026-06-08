@@ -190,7 +190,7 @@ export default function OrderTrackingScreen() {
         </View>
 
         {/* Cyclist Assignment Details */}
-        {driver && (order.delivery?.status === 'Accepted' || order.delivery?.status === 'InProgress' || order.status === 'OutForDelivery' || order.status === 'Delivered' || order.status === 'Completed') ? (
+        {driver ? (
           <View style={styles.cyclistCard}>
             <View style={styles.cyclistHeader}>
               <View style={styles.cyclistAvatar}>
@@ -213,11 +213,9 @@ export default function OrderTrackingScreen() {
           <View style={styles.searchingCard}>
             <ActivityIndicator size="small" color="#004AAD" style={{ marginRight: 10 }} />
             <Text style={styles.searchingText}>
-              {driver 
-                ? 'Cyclist assigned. Waiting for acceptance...' 
-                : currentStatus === OrderStatus.Prepared 
-                  ? 'Notifying nearby cyclists...' 
-                  : 'Waiting for restaurant preparation...'}
+              {currentStatus === OrderStatus.Prepared 
+                ? 'Notifying nearby cyclists...' 
+                : 'Waiting for restaurant preparation...'}
             </Text>
           </View>
         )}

@@ -17,7 +17,7 @@ import { getToken } from '../src/utils/auth';
 import { styles } from '@/styles/delivery.styles';
 import { placeOrder, OrderPayload } from '../services/orderService';
 
-const API_BASE_URL = 'http://10.246.207.228:5260';
+const API_BASE_URL = 'http://10.255.49.59:5260';
 
 export default function DeliveryScreen() {
   const [showPanel, setShowPanel] = useState(false);

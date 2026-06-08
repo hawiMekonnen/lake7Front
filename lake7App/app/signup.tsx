@@ -48,7 +48,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://10.246.207.228:5260/api/auth/register', {
+      const response = await axios.post('http://10.255.49.59:5260/api/auth/register', {
         fullname,
         email,
         password,

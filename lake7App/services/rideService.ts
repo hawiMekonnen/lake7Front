@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken } from '../src/utils/auth';
 
-const API_BASE = 'http://10.246.207.228:5260/api';
+const API_BASE = 'http://10.255.49.59:5260/api';
 
 export const getUserRides = async () => {
   const token = await getToken();
