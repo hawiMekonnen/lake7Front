@@ -21,7 +21,7 @@ export const ServiceCard = ({ title, subtitle, image, onPress }: ServiceCardProp
 
         <View style={serviceCardStyles.contentContainer}>
           <Text style={serviceCardStyles.title}>{title}</Text>
-          {subtitle && <Text style={serviceCardStyles.subtitle}>{subtitle}</Text>}
+          {subtitle ? <Text style={serviceCardStyles.subtitle}>{subtitle}</Text> : null}
 
           <View style={serviceCardStyles.arrowContainer}>
             <Ionicons name="arrow-forward" size={16} color="#1E40AF" />

@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCart } from '../src/context/CartContext';
 import { useAuth } from '../src/context/AuthContext';
 import { placeOrder } from '../services/orderService';
+import { resolveImageUrl } from '../services/restaurantService';
 import * as Location from 'expo-location';
 import axios from 'axios';
 
@@ -28,6 +29,7 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const { 
     cartItems, 
+    restaurantId,
     restaurantName, 
     restaurantAddress, 
     restaurantLatitude, 
@@ -162,6 +164,7 @@ export default function CheckoutScreen() {
         dropoffLatitude: deliveryLatitude,
         dropoffLongitude: deliveryLongitude,
         itemDescription: JSON.stringify({
+          restaurantName: restaurantName || 'Restaurant',
           items: cartItems.map(item => ({
             id: item.id,
             name: item.name,
@@ -173,6 +176,7 @@ export default function CheckoutScreen() {
         estimatedPrice: totalAmount,
         paymentMethod: selectedPayment,
         paymentAmount: totalAmount,
+        restaurantId: restaurantId || undefined,
       };
 
       console.log('Placing delivery order:', orderPayload);
@@ -225,7 +229,7 @@ export default function CheckoutScreen() {
             {cartItems.map((item) => (
               <View key={item.id} style={styles.productRow}>
                 <Image 
-                  source={{ uri: item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80' }} 
+                  source={{ uri: resolveImageUrl(item.imageUrl) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80' }} 
                   style={styles.productImage} 
                 />
                 <View style={styles.productInfo}>

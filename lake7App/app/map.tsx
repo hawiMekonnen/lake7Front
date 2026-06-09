@@ -134,8 +134,8 @@ export default function MapScreen() {
         pickupLatitude: parsed.pickupLatitude,
         pickupLongitude: parsed.pickupLongitude,
         dropoffLocation: parsed.dropoffLocation,
-        dropLatitude: parsed.dropLatitude,
-        dropLongitude: parsed.dropLongitude,
+        dropoffLatitude: parsed.dropLatitude,    // ✅ fixed: matches RideRequestDto.DropoffLatitude
+        dropoffLongitude: parsed.dropLongitude,  // ✅ fixed: matches RideRequestDto.DropoffLongitude
         vehicleType: selectedVehicle,
       };
 

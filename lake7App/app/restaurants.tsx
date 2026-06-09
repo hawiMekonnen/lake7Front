@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { restaurantService } from '../services/restaurantService';
+import { restaurantService, resolveImageUrl } from '../services/restaurantService';
 import { styles } from '@/styles/restaurant.styles';
 
 const { width } = Dimensions.get('window');
@@ -128,7 +128,8 @@ export default function RestaurantsScreen() {
     ? restaurants.map(r => ({
         id: r.id,
         name: r.name,
-        imageUrl: r.imageUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+        imageUrl: resolveImageUrl(r.imageUrl) || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+        logoUrl: resolveImageUrl(r.logoUrl || r.imageUrl) || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=200&q=80',
         category: r.category || 'Restaurant',
         rating: '4.5',
         distance: '1.2KM',
@@ -275,7 +276,14 @@ export default function RestaurantsScreen() {
                 }
               }}
             >
-              <Image source={{ uri: rest.imageUrl }} style={styles.restLogoImg} />
+              {/* Logo circle */}
+              <View style={{ width: 60, height: 60, borderRadius: 30, overflow: 'hidden', backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0', marginRight: 12, flexShrink: 0 }}>
+                <Image 
+                  source={{ uri: (rest as any).logoUrl || rest.imageUrl }} 
+                  style={{ width: '100%', height: '100%' }} 
+                  resizeMode="cover"
+                />
+              </View>
               <View style={styles.restRowInfo}>
                 <View style={styles.restRowHeader}>
                   <Text style={styles.restRowName} numberOfLines={1}>{rest.name}</Text>

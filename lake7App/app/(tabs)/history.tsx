@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { historyStyles as styles } from '../../styles/history.styles';
 import { getUserOrders } from '../../services/orderService';
 import { getUserRides } from '../../services/rideService';
+import { getRestaurantName } from '../../src/utils/orderUtils';
 import { useRouter } from 'expo-router';
 
 interface HistoryItem {
@@ -122,17 +123,21 @@ export default function HistoryPage() {
         originalItem: ride,
       }));
 
-      const formattedOrders: HistoryItem[] = (orders || []).map((order: any) => ({
+      const formattedOrders: HistoryItem[] = (orders || []).map((order: any) => {
+        const restaurantName = getRestaurantName(order);
+        const itemsTitle = parseOrderTitle(order);
+        return {
         id: order.id,
         type: 'delivery',
-        title: parseOrderTitle(order),
+        title: restaurantName ? `${restaurantName} · ${itemsTitle}` : itemsTitle,
         date: formatDate(order.createdAt),
         rawDate: order.createdAt,
         price: `ETB ${(order.totalAmount || 0).toFixed(2)}`,
         status: mapOrderStatus(order.status),
         icon: 'fast-food-outline',
         originalItem: order,
-      }));
+      };
+      });
 
       const combined = [...formattedRides, ...formattedOrders].sort(
         (a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime()

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getRestaurantName, getPaymentMethod } from '../src/utils/orderUtils';
 
 export default function TransactionDetailScreen() {
   const params = useLocalSearchParams();
@@ -31,6 +32,10 @@ export default function TransactionDetailScreen() {
 
   const isRide = item.type === 'ride';
   const original = item.originalItem || {};
+  const restaurantName = !isRide ? getRestaurantName(original) : null;
+  const paymentMethod = !isRide ? getPaymentMethod(original) : null;
+  const driverName = original.driverName || original.delivery?.driver?.name;
+  const driverPhone = original.driverPhoneNumber || original.delivery?.driver?.phoneNumber;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -50,6 +55,9 @@ export default function TransactionDetailScreen() {
             <Ionicons name={item.icon} size={36} color="#1E40AF" />
           </View>
           <Text style={styles.priceText}>{item.price}</Text>
+          {!isRide && restaurantName ? (
+            <Text style={styles.restaurantNameText}>{restaurantName}</Text>
+          ) : null}
           <Text style={styles.titleText}>{item.title}</Text>
           <Text style={styles.dateText}>{item.date}</Text>
 
@@ -103,53 +111,60 @@ export default function TransactionDetailScreen() {
             <Text style={styles.detailValue}>{item.id.substring(0, 8).toUpperCase()}</Text>
           </View>
 
-          {isRide && original.vehicleType && (
+          {isRide && original.vehicleType ? (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Vehicle Category</Text>
               <Text style={styles.detailValue}>{original.vehicleType}</Text>
             </View>
-          )}
+          ) : null}
 
-          {!isRide && original.paymentMethod && (
+          {!isRide && restaurantName ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Restaurant</Text>
+              <Text style={styles.detailValue}>{restaurantName}</Text>
+            </View>
+          ) : null}
+
+          {!isRide && paymentMethod ? (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Payment Method</Text>
-              <Text style={styles.detailValue}>{original.paymentMethod}</Text>
+              <Text style={styles.detailValue}>{paymentMethod}</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* Driver/Cyclist Info if available */}
-        {(original.driverName || original.delivery?.driver?.name) && (
+        {driverName ? (
           <View style={styles.detailsCard}>
             <Text style={styles.sectionTitle}>{isRide ? 'Driver Details' : 'Cyclist Details'}</Text>
             
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Name</Text>
-              <Text style={styles.detailValue}>{original.driverName || original.delivery?.driver?.name}</Text>
+              <Text style={styles.detailValue}>{driverName}</Text>
             </View>
 
-            {(original.driverPhoneNumber || original.delivery?.driver?.phoneNumber) && (
+            {driverPhone ? (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Phone Number</Text>
-                <Text style={styles.detailValue}>{original.driverPhoneNumber || original.delivery?.driver?.phoneNumber}</Text>
+                <Text style={styles.detailValue}>{driverPhone}</Text>
               </View>
-            )}
+            ) : null}
 
-            {isRide && original.driverLicensePlate && (
+            {isRide && original.driverLicensePlate ? (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>License Plate</Text>
                 <Text style={styles.detailValue}>{original.driverLicensePlate}</Text>
               </View>
-            )}
+            ) : null}
 
-            {isRide && original.driverVehicleInfo && (
+            {isRide && original.driverVehicleInfo ? (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Vehicle Information</Text>
                 <Text style={styles.detailValue}>{original.driverVehicleInfo}</Text>
               </View>
-            )}
+            ) : null}
           </View>
-        )}
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -232,10 +247,17 @@ const styles = StyleSheet.create({
     color: '#1E40AF',
     marginBottom: 8,
   },
+  restaurantNameText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
   titleText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#64748B',
     textAlign: 'center',
     marginBottom: 4,
   },

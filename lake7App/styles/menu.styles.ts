@@ -139,5 +139,32 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#64748B',
     marginTop: 20,
+  },
+  tabsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 15,
+  },
+  tabButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeTabButton: {
+    backgroundColor: '#1E40AF',
+    borderColor: '#1E40AF',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  activeTabText: {
+    color: 'white',
   }
 });
